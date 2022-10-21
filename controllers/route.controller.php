@@ -1,36 +1,37 @@
-<?php 
+<?php
 
-class RoutesController{
+class RoutesController
+{
 
 	/*=============================================
 	Ruta Principal
 	=============================================*/
-	
-	public function index(){
+
+	public function index()
+	{
 
 		include "routes/route.php";
-
 	}
 
 	/*=============================================
 	Nombre de la base de datos
 	=============================================*/
 
-	static public function database(){
+	static public function database()
+	{
 
-		return "marketplace";
+		return "credifarma";
 	}
 
 	/*=============================================
 	Tablas protegidas
 	=============================================*/
 
-	static public function tablePrivate(){
+	static public function tablePrivate()
+	{
 
-		$tables = ["users","disputes","orders","sales","messages"];
+		$tables = ["users", "disputes", "orders", "sales", "messages"];
 
 		return $tables;
-
 	}
-
 }
