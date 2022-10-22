@@ -1,4 +1,6 @@
-<?php 
+<?php
+
+require_once "models/get.model.php";
 
 class GetController{
 
@@ -6,13 +8,12 @@ class GetController{
 	Peticiones GET sin filtro
 	=============================================*/
 
-	public function getData($table, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getData($table, $select,$orderBy,$orderMode,$startAt,$endAt){
 
-		$response = GetModel::getData($table, $orderBy, $orderMode, $startAt, $endAt, $select);
-
+		$response = GetModel::getData($table, $select,$orderBy,$orderMode,$startAt,$endAt);
 
 		$return = new GetController();
-		$return -> fncResponse($response, "getData");
+		$return -> fncResponse($response);
 
 	}
 
@@ -20,90 +21,90 @@ class GetController{
 	Peticiones GET con filtro
 	=============================================*/
 
-	public function getFilterData($table, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getDataFilter($table, $select, $linkTo, $equalTo,$orderBy,$orderMode,$startAt,$endAt){
 
-		$response = GetModel::getFilterData($table, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt, $select);
+		$response = GetModel::getDataFilter($table, $select, $linkTo, $equalTo,$orderBy,$orderMode,$startAt,$endAt);
 
 		$return = new GetController();
-		$return -> fncResponse($response, "getFilterData");
+		$return -> fncResponse($response);
 
 	}
 
 	/*=============================================
-	Peticiones GET tablas relacionadas sin filtro
+	Peticiones GET sin filtro entre tablas relacionadas
 	=============================================*/
 
-	public function getRelData($rel, $type, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getRelData($rel,$type,$select,$orderBy,$orderMode,$startAt,$endAt){
 
-		$response = GetModel::getRelData($rel, $type, $orderBy, $orderMode, $startAt, $endAt, $select);
-
+		$response = GetModel::getRelData($rel,$type,$select,$orderBy,$orderMode,$startAt,$endAt);
+		
 		$return = new GetController();
-		$return -> fncResponse($response, "getRelData");
+		$return -> fncResponse($response);
 
 	}
 
 	/*=============================================
-	Peticiones GET tablas relacionadas con filtro
+	Peticiones GET con filtro entre tablas relacionadas
 	=============================================*/
 
-	public function getRelFilterData($rel, $type, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getRelDataFilter($rel,$type,$select, $linkTo, $equalTo,$orderBy,$orderMode,$startAt,$endAt){
 
-		$response = GetModel::getRelFilterData($rel, $type, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt, $select);
-
+		$response = GetModel::getRelDataFilter($rel,$type,$select, $linkTo, $equalTo,$orderBy,$orderMode,$startAt,$endAt);
+		
 		$return = new GetController();
-		$return -> fncResponse($response, "getRelFilterData");
+		$return -> fncResponse($response);
 
 	}
 
 	/*=============================================
-	Peticiones GET para el buscador
+	Peticiones GET para el buscador sin relaciones
 	=============================================*/
 
-	public function getSearchData($table, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getDataSearch($table, $select, $linkTo, $search,$orderBy,$orderMode,$startAt,$endAt){
 
-		$response = GetModel::getSearchData($table, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt, $select);
-
+		$response = GetModel::getDataSearch($table, $select, $linkTo, $search,$orderBy,$orderMode,$startAt,$endAt);
+		
 		$return = new GetController();
-		$return -> fncResponse($response, "getSearchData");
+		$return -> fncResponse($response);
 
 	}
 
 	/*=============================================
-	Peticiones GET  para el buscador entre tablas relacionadas
+	Peticiones GET para el buscador entre tablas relacionadas
 	=============================================*/
 
-	public function getSearchRelData($rel, $type, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getRelDataSearch($rel,$type,$select, $linkTo, $search,$orderBy,$orderMode,$startAt,$endAt){
 
-		$response = GetModel::getSearchRelData($rel, $type, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt, $select);
-
+		$response = GetModel::getRelDataSearch($rel,$type,$select, $linkTo, $search,$orderBy,$orderMode,$startAt,$endAt);
+		
 		$return = new GetController();
-		$return -> fncResponse($response, "getSearchRelData");
+		$return -> fncResponse($response);
 
 	}
 
 	/*=============================================
-	Peticiones GET para rangos
+	Peticiones GET para selección de rangos
 	=============================================*/
 
-	public function getBetweenData($table, $linkTo, $between1, $between2, $filterTo, $inTo, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getDataRange($table,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo){
 
-		$response = GetModel::getBetweenData($table, $linkTo, $between1, $between2, $filterTo, $inTo, $orderBy, $orderMode, $startAt, $endAt, $select);
-
+		$response = GetModel::getDataRange($table,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo);
+		
 		$return = new GetController();
-		$return -> fncResponse($response, "getBetweenData");
+		$return -> fncResponse($response);
 
 	}
 
 	/*=============================================
-	Peticiones GET  para rangos entre tablas relacionadas
+	Peticiones GET para selección de rangos con relaciones
 	=============================================*/
 
-	public function getBetweenRelData($rel, $type, $linkTo, $between1, $between2, $filterTo, $inTo, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getRelDataRange($rel,$type,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo){
 
-		$response = GetModel::getBetweenRelData($rel, $type, $linkTo, $between1, $between2, $filterTo, $inTo, $orderBy, $orderMode, $startAt, $endAt, $select);
-
+		$response = GetModel::getRelDataRange($rel,$type,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo);
+		
 		$return = new GetController();
-		$return -> fncResponse($response, "getBetweenRelData");
+		$return -> fncResponse($response);
 
 	}
 
@@ -111,35 +112,32 @@ class GetController{
 	Respuestas del controlador
 	=============================================*/
 
-	public function fncResponse($response, $method){
+	public function fncResponse($response){
 
 		if(!empty($response)){
 
 			$json = array(
+
 				'status' => 200,
 				'total' => count($response),
-				"results" => $response
+				'results' => $response
+
 			);
 
 		}else{
 
 			$json = array(
+
 				'status' => 404,
-				"results" => "Not Found",
-				'method' => $method
+				'results' => 'Not Found',
+				'method' => 'get'
+
 			);
 
 		}
 
 		echo json_encode($json, http_response_code($json["status"]));
 
-		return;
-
 	}
-
-
-
-
-
 
 }

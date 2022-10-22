@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 require_once "connection.php";
 
@@ -8,23 +8,67 @@ class GetModel{
 	Peticiones GET sin filtro
 	=============================================*/
 
-	static public function getData($table, $orderBy, $orderMode, $startAt, $endAt, $select){
-	
+	static public function getData($table, $select,$orderBy,$orderMode,$startAt,$endAt){
+
+		/*=============================================
+		Validar existencia de la tabla y de las columnas
+		=============================================*/
+
+		$selectArray = explode(",",$select);
+		
+		if(empty(Connection::getColumnsData($table, $selectArray))){
+			
+			return null;
+		
+		}
+
+		/*=============================================
+		Sin ordenar y sin limitar datos
+		=============================================*/
+
+		$sql = "SELECT $select FROM $table";
+
+		/*=============================================
+		Ordenar datos sin limites
+		=============================================*/
+
 		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
 
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table ORDER BY $orderBy $orderMode");
-
-		}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-		}else{
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table");
+			$sql = "SELECT $select FROM $table ORDER BY $orderBy $orderMode";
 
 		}
 
-		$stmt -> execute();
+		/*=============================================
+		Ordenar y limitar datos
+		=============================================*/
+
+		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
+
+			$sql = "SELECT $select FROM $table ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
+
+		}
+
+		/*=============================================
+		Limitar datos sin ordenar
+		=============================================*/
+
+		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
+
+			$sql = "SELECT $select FROM $table LIMIT $startAt, $endAt";
+
+		}
+
+		$stmt = Connection::connect()->prepare($sql);
+
+		try{
+
+			$stmt -> execute();
+
+		}catch(PDOException $Exception){
+
+			return null;
+		
+		}
 
 		return $stmt -> fetchAll(PDO::FETCH_CLASS);
 
@@ -33,18 +77,33 @@ class GetModel{
 	/*=============================================
 	Peticiones GET con filtro
 	=============================================*/
-
-	static public function getFilterData($table, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt, $select){
+	
+	static public function getDataFilter($table, $select, $linkTo, $equalTo, $orderBy,$orderMode,$startAt,$endAt){
 
 		/*=============================================
-		Seleccionar varios filtros
+		Validar existencia de la tabla y de las columnas
 		=============================================*/
 
-		$linkToArray = explode(",", $linkTo);
-		$equalToArray = explode(",", $equalTo);
+		$linkToArray = explode(",",$linkTo);
+		$selectArray = explode(",",$select);
+
+		foreach ($linkToArray  as $key => $value) {
+			array_push($selectArray, $value);
+		}
+
+		$selectArray = array_unique($selectArray);
+
+
+		if(empty(Connection::getColumnsData($table,$selectArray ))){	
+			
+			return null;
+
+		}
+		
+		$equalToArray = explode(",",$equalTo);
 		$linkToText = "";
 
-		if(count($linkToArray) > 1){
+		if(count($linkToArray)>1){
 
 			foreach ($linkToArray as $key => $value) {
 				
@@ -52,151 +111,308 @@ class GetModel{
 
 					$linkToText .= "AND ".$value." = :".$value." ";
 				}
-
 			}
 
 		}
+
+		/*=============================================
+		Sin ordenar y sin limitar datos
+		=============================================*/
+
+		$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText";
+
+		/*=============================================
+		Ordenar datos sin limites
+		=============================================*/
 
 		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
 
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode");
-		
-		}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-		}else{
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText");
+			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode";
 
 		}
+
+		/*=============================================
+		Ordenar y limitar datos
+		=============================================*/
+
+		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
+
+			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
+
+		}
+
+		/*=============================================
+		Limitar datos sin ordenar
+		=============================================*/
+
+		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
+
+			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] = :$linkToArray[0] $linkToText LIMIT $startAt, $endAt";
+
+		}
+
+		$stmt = Connection::connect()->prepare($sql);
 
 		foreach ($linkToArray as $key => $value) {
 			
-			$stmt->bindParam(":".$value, $equalToArray[$key], PDO::PARAM_STR);
-			
+			$stmt -> bindParam(":".$value, $equalToArray[$key], PDO::PARAM_STR);
+
 		}
 
-		$stmt -> execute();
+		try{
+
+			$stmt -> execute();
+
+		}catch(PDOException $Exception){
+
+			return null;
+		
+		}
 
 		return $stmt -> fetchAll(PDO::FETCH_CLASS);
 
 	}
 
 	/*=============================================
-	Peticiones GET tablas relacionadas sin filtro
+	Peticiones GET sin filtro entre tablas relacionadas
 	=============================================*/
 
-	static public function getRelData($rel, $type, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getRelData($rel, $type, $select, $orderBy,$orderMode,$startAt,$endAt){
+
+		/*=============================================
+		Validar existencia de las columnas
+		=============================================*/
+	
+		$relArray = explode(",", $rel);
+		$typeArray = explode(",", $type);
+		$innerJoinText = "";
+
+		if(count($relArray)>1){
+
+			foreach ($relArray as $key => $value) {
+
+				/*=============================================
+				Validar existencia de la tabla y de las columnas
+				=============================================*/
+				
+				if(empty(Connection::getColumnsData($value,["*"]))){
+
+					return null;
+
+				}
+				
+				if($key > 0){
+
+					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0] ." = ".$value.".id_".$typeArray[$key]." ";
+				}
+			}
+
+
+			/*=============================================
+			Sin ordenar y sin limitar datos
+			=============================================*/
+
+			$sql = "SELECT $select FROM $relArray[0] $innerJoinText";
+
+			/*=============================================
+			Ordenar datos sin limites
+			=============================================*/
+
+			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
+
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText ORDER BY $orderBy $orderMode";
+
+			}
+
+			/*=============================================
+			Ordenar y limitar datos
+			=============================================*/
+
+			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
+
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
+
+			}
+
+			/*=============================================
+			Limitar datos sin ordenar
+			=============================================*/
+
+			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
+
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText LIMIT $startAt, $endAt";
+
+			}
+
+			$stmt = Connection::connect()->prepare($sql);
+
+			try{
+
+				$stmt -> execute();
+
+			}catch(PDOException $Exception){
+
+				return null;
+			
+			}
+
+			return $stmt -> fetchAll(PDO::FETCH_CLASS);
+
+		}else{
+
+			return null;
+		}
+		
+	}
+
+	/*=============================================
+	Peticiones GET con filtro entre tablas relacionadas
+	=============================================*/
+
+	static public function getRelDataFilter($rel, $type, $select, $linkTo, $equalTo, $orderBy,$orderMode,$startAt,$endAt){
+
+
+		/*=============================================
+		Organizamos los filtros
+		=============================================*/
+
+		$linkToArray = explode(",",$linkTo);
+		$equalToArray = explode(",",$equalTo);
+		$linkToText = "";
+
+		if(count($linkToArray)>1){
+
+			foreach ($linkToArray as $key => $value) {
+
+				if($key > 0){
+
+					$linkToText .= "AND ".$value." = :".$value." ";
+				}
+			}
+
+		}
+
+		/*=============================================
+		Organizamos las relaciones
+		=============================================*/
 
 		$relArray = explode(",", $rel);
 		$typeArray = explode(",", $type);
+		$innerJoinText = "";
 
-		/*=============================================
-		Relacionar 2 tablas
-		=============================================*/
+		if(count($relArray)>1){
 
-		if(count($relArray) == 2 && count($typeArray) == 2){
+			foreach ($relArray as $key => $value) {
 
-			$on1 = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on2 = $relArray[1].".id_".$typeArray[1];
+				/*=============================================
+				Validar existencia de la tabla
+				=============================================*/
+				
+				if(empty(Connection::getColumnsData($value, ["*"]))){
+
+					return null;
+
+				}
+				
+				if($key > 0){
+
+					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0] ." = ".$value.".id_".$typeArray[$key]." ";
+				}
+			}
+
+
+			/*=============================================
+			Sin ordenar y sin limitar datos
+			=============================================*/
+
+			$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText";
+
+			/*=============================================
+			Ordenar datos sin limites
+			=============================================*/
 
 			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
 
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2");
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode";
 
 			}
 
-		}
+			/*=============================================
+			Ordenar y limitar datos
+			=============================================*/
 
-		/*=============================================
-		Relacionar 3 tablas
-		=============================================*/
+			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
 
-		if(count($relArray) == 3 && count($typeArray) == 3){
-
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b");
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
 
 			}
 
-		}
+			/*=============================================
+			Limitar datos sin ordenar
+			=============================================*/
 
-		/*=============================================
-		Relacionar 4 tablas
-		=============================================*/
+			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
 
-		if(count($relArray) == 4 && count($typeArray) == 4){
-
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			$on3a = $relArray[0].".id_".$typeArray[3]."_".$typeArray[0]; 
-			$on3b = $relArray[3].".id_".$typeArray[3];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b");
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] = :$linkToArray[0] $linkToText LIMIT $startAt, $endAt";
 
 			}
 
+			$stmt = Connection::connect()->prepare($sql);
+
+			foreach ($linkToArray as $key => $value) {
+			
+				$stmt -> bindParam(":".$value, $equalToArray[$key], PDO::PARAM_STR);
+
+			}
+
+			try{
+
+				$stmt -> execute();
+
+			}catch(PDOException $Exception){
+
+				return null;
+			
+			}
+
+			return $stmt -> fetchAll(PDO::FETCH_CLASS);
+
+		}else{
+
+			return null;
 		}
-
-		$stmt -> execute();
-
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
 		
 	}
 
 	/*=============================================
-	Peticiones GET tablas relacionadas con filtro
+	Peticiones GET para el buscador sin relaciones
 	=============================================*/
 
-	static public function getRelFilterData($rel, $type, $linkTo, $equalTo, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getDataSearch($table, $select, $linkTo, $search,$orderBy,$orderMode,$startAt,$endAt){
 
 		/*=============================================
-		Seleccionar varios filtros
+		Validar existencia de la tabla y de las columnas
 		=============================================*/
 
-		$linkToArray = explode(",", $linkTo);
-		$equalToArray = explode(",", $equalTo);
+		$linkToArray = explode(",",$linkTo);
+		$selectArray = explode(",",$select);
+
+		foreach ($linkToArray  as $key => $value) {
+			array_push($selectArray, $value);
+		}
+
+		$selectArray = array_unique($selectArray);
+		
+		if(empty(Connection::getColumnsData($table,$selectArray ))){
+			
+			return null;
+
+		}
+
+		$searchArray = explode(",",$search);
 		$linkToText = "";
 
-		if(count($linkToArray) > 1){
+		if(count($linkToArray)>1){
 
 			foreach ($linkToArray as $key => $value) {
 				
@@ -204,455 +420,401 @@ class GetModel{
 
 					$linkToText .= "AND ".$value." = :".$value." ";
 				}
-
 			}
 
 		}
 
-		$relArray = explode(",", $rel);
-		$typeArray = explode(",", $type);
 
 		/*=============================================
-		Relacionar 2 tablas
+		Sin ordenar y sin limitar datos
 		=============================================*/
 
-		if(count($relArray) == 2 && count($typeArray) == 2){
+		$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText";
 
-			$on1 = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on2 = $relArray[1].".id_".$typeArray[1];
+		/*=============================================
+		Ordenar datos sin limites
+		=============================================*/
 
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
+		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
 
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkToArray[0] = :$linkToArray[0] $linkToText");
-
-			}			
+			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode";
 
 		}
 
 		/*=============================================
-		Relacionar 3 tablas
+		Ordenar y limitar datos
 		=============================================*/
 
-		if(count($relArray) == 3 && count($typeArray) == 3){
+		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
 
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkToArray[0] = :$linkToArray[0] $linkToText");
-
-			}
+			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
 
 		}
 
 		/*=============================================
-		Relacionar 4 tablas
+		Limitar datos sin ordenar
 		=============================================*/
 
-		if(count($relArray) == 4 && count($typeArray) == 4){
+		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
 
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			$on3a = $relArray[0].".id_".$typeArray[3]."_".$typeArray[0]; 
-			$on3b = $relArray[3].".id_".$typeArray[3];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkToArray[0] = :$linkToArray[0] $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkToArray[0] = :$linkToArray[0] $linkToText");
-
-			}
+			$sql = "SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText LIMIT $startAt, $endAt";
 
 		}
+
+		$stmt = Connection::connect()->prepare($sql);
 
 		foreach ($linkToArray as $key => $value) {
+
+			if($key > 0){
 			
-			$stmt->bindParam(":".$value, $equalToArray[$key], PDO::PARAM_STR);
-			
+				$stmt -> bindParam(":".$value, $searchArray[$key], PDO::PARAM_STR);
+
+			}
+
 		}
 
-		$stmt -> execute();
+		try{
+
+			$stmt -> execute();
+
+		}catch(PDOException $Exception){
+
+			return null;
+		
+		}
 
 		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-		
+
+
 	}
 
+
 	/*=============================================
-	Peticiones GET para el buscador
+	Peticiones GET para el buscador entre tablas relacionadas
 	=============================================*/
 
-	static public function getSearchData($table, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getRelDataSearch($rel, $type, $select, $linkTo, $search, $orderBy,$orderMode,$startAt,$endAt){
+
 
 		/*=============================================
-		Seleccionar varios filtros
+		Organizamos los filtros
 		=============================================*/
-
-		$linkToArray = explode(",", $linkTo);
-		$searchArray = explode(",", $search);
+		$linkToArray = explode(",",$linkTo);
+		$searchArray = explode(",",$search);
 		$linkToText = "";
 
-		if(count($linkToArray) > 1){
+		if(count($linkToArray)>1){
+
+			foreach ($linkToArray as $key => $value) {
+				
+				if($key > 0){
+
+					$linkToText .= "AND ".$value." = :".$value." ";
+				}
+			}
+
+		}
+	
+		/*=============================================
+		Organizamos las relaciones
+		=============================================*/
+
+		$relArray = explode(",", $rel);
+		$typeArray = explode(",", $type);
+		$innerJoinText = "";
+
+		if(count($relArray)>1){
+
+			foreach ($relArray as $key => $value) {
+
+				/*=============================================
+				Validar existencia de la tabla
+				=============================================*/
+				
+				if(empty(Connection::getColumnsData($value, ["*"]))){
+
+					return null;
+
+				}
+				
+				if($key > 0){
+
+					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0] ." = ".$value.".id_".$typeArray[$key]." ";
+				}
+			}
+
+
+			/*=============================================
+			Sin ordenar y sin limitar datos
+			=============================================*/
+
+			$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText";
+
+			/*=============================================
+			Ordenar datos sin limites
+			=============================================*/
+
+			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
+
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode";
+
+			}
+
+			/*=============================================
+			Ordenar y limitar datos
+			=============================================*/
+
+			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
+
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
+
+			}
+
+			/*=============================================
+			Limitar datos sin ordenar
+			=============================================*/
+
+			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
+
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText LIMIT $startAt, $endAt";
+
+			}
+
+			$stmt = Connection::connect()->prepare($sql);
 
 			foreach ($linkToArray as $key => $value) {
 
 				if($key > 0){
-
-					$linkToText .=  "AND ".$value." = :".$value." ";
+				
+					$stmt -> bindParam(":".$value, $searchArray[$key], PDO::PARAM_STR);
 
 				}
 
 			}
 
+			try{
+
+				$stmt -> execute();
+
+			}catch(PDOException $Exception){
+
+				return null;
+			
+			}
+
+			return $stmt -> fetchAll(PDO::FETCH_CLASS);
+
+		}else{
+
+			return null;
+		}
+		
+	}
+
+	/*=============================================
+	Peticiones GET para selección de rangos
+	=============================================*/
+
+	static public function getDataRange($table,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo){
+
+		/*=============================================
+		Validar existencia de la tabla y de las columnas
+		=============================================*/
+
+		$linkToArray = explode(",",$linkTo);
+
+		if($filterTo != null){
+			$filterToArray = explode(",",$filterTo);
+		}else{
+			$filterToArray =array();
+		}
+		
+		$selectArray = explode(",",$select);
+
+		foreach ($linkToArray  as $key => $value) {
+			array_push($selectArray, $value);
+		}
+
+		foreach ($filterToArray  as $key => $value) {
+			array_push($selectArray, $value);
+		}
+
+		$selectArray = array_unique($selectArray);
+		
+		if(empty(Connection::getColumnsData($table,$selectArray ))){
+			
+			return null;
 
 		}
 
+		$filter = "";
+
+		if($filterTo != null && $inTo != null){
+
+			$filter = 'AND '.$filterTo.' IN ('.$inTo.')';
+
+		}
+
+		/*=============================================
+		Sin ordenar y sin limitar datos
+		=============================================*/
+
+		$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter";
+
+		/*=============================================
+		Ordenar datos sin limites
+		=============================================*/
 
 		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
 
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode");
-
-		}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-		}else{
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText");
+			$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode";
 
 		}
 
-		if(count($linkToArray) > 1){
+		/*=============================================
+		Ordenar y limitar datos
+		=============================================*/
 
-			unset($linkToArray[0]);
+		if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
 
-			foreach ($linkToArray as $key => $value) {
-				
-				$stmt->bindParam(":".$value, $searchArray[$key], PDO::PARAM_STR);
-			}
+			$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
 
-		}	
+		}
 
-		$stmt -> execute();
+		/*=============================================
+		Limitar datos sin ordenar
+		=============================================*/
+
+		if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
+
+			$sql = "SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter LIMIT $startAt, $endAt";
+
+		}
+
+		$stmt = Connection::connect()->prepare($sql);
+
+		try{
+
+			$stmt -> execute();
+
+		}catch(PDOException $Exception){
+
+			return null;
+		
+		}
 
 		return $stmt -> fetchAll(PDO::FETCH_CLASS);
 
 	}
 
 	/*=============================================
-	Peticiones GET  para el buscador entre tablas relacionadas
+	Peticiones GET para selección de rangos con relaciones
 	=============================================*/
 
-	static public function getSearchRelData($rel, $type, $linkTo, $search, $orderBy, $orderMode, $startAt, $endAt, $select){
+	static public function getRelDataRange($rel,$type,$select,$linkTo,$between1,$between2,$orderBy,$orderMode,$startAt,$endAt, $filterTo, $inTo){
 
 		/*=============================================
-		Seleccionar varios filtros
+		Validar existencia de la tabla y de las columnas
 		=============================================*/
 
-		$linkToArray = explode(",", $linkTo);
-		$searchArray = explode(",", $search);
-		$linkToText = "";
+		$linkToArray = explode(",",$linkTo);
+		
+		if($filterTo != null){
+			$filterToArray = explode(",",$filterTo);
+		}else{
+			$filterToArray =array();
+		}
 
-		if(count($linkToArray) > 1){
+		$filter = "";
 
-			foreach ($linkToArray as $key => $value) {
+		if($filterTo != null && $inTo != null){
 
-				if($key > 0){
+			$filter = 'AND '.$filterTo.' IN ('.$inTo.')';
 
-					$linkToText .=  "AND ".$value." = :".$value." ";
+		}
+
+		$relArray = explode(",", $rel);
+		$typeArray = explode(",", $type);
+		$innerJoinText = "";
+
+		if(count($relArray)>1){
+
+			foreach ($relArray as $key => $value) {
+
+				/*=============================================
+				Validar existencia de la tabla
+				=============================================*/
+				
+				if(empty(Connection::getColumnsData($value, ["*"]))){
+
+					return null;
 
 				}
 
-			}
-
-		}
-
-		$relArray = explode(",", $rel);
-		$typeArray = explode(",", $type);
-
-		/*=============================================
-		Relacionar 2 tablas
-		=============================================*/
-
-		if(count($relArray) == 2 && count($typeArray) == 2){
-
-			$on1 = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on2 = $relArray[1].".id_".$typeArray[1];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText");
-
-			}			
-
-		}
-
-		/*=============================================
-		Relacionar 3 tablas
-		=============================================*/
-
-		if(count($relArray) == 3 && count($typeArray) == 3){
-
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText");
-
-			}
-
-		}
-
-		/*=============================================
-		Relacionar 4 tablas
-		=============================================*/
-
-		if(count($relArray) == 4 && count($typeArray) == 4){
-
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			$on3a = $relArray[0].".id_".$typeArray[3]."_".$typeArray[0]; 
-			$on3b = $relArray[3].".id_".$typeArray[3];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkToArray[0] LIKE '%$searchArray[0]%' $linkToText");
-
-			}
-
-		}
-
-		if(count($linkToArray) > 1){
-
-			unset($linkToArray[0]);
-
-			foreach ($linkToArray as $key => $value) {
 				
-				$stmt->bindParam(":".$value, $searchArray[$key], PDO::PARAM_STR);
+				if($key > 0){
+
+					$innerJoinText .= "INNER JOIN ".$value." ON ".$relArray[0].".id_".$typeArray[$key]."_".$typeArray[0]." = ".$value.".id_".$typeArray[$key]." ";
+				}
 			}
 
-		}	
+			/*=============================================
+			Sin ordenar y sin limitar datos
+			=============================================*/
 
-		$stmt -> execute();
+			$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter";
 
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-		
-	}
+			/*=============================================
+			Ordenar datos sin limites
+			=============================================*/
 
-	/*=============================================
-	Peticiones GET de rangos
-	=============================================*/
+			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
 
-	static public function getBetweenData($table, $linkTo, $between1, $between2, $filterTo, $inTo, $orderBy, $orderMode, $startAt, $endAt, $select){
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode";
 
-		if($inTo != 0){
+			}
 
-			$inTo = "IN (".$inTo.")";
+			/*=============================================
+			Ordenar y limitar datos
+			=============================================*/
 
-		}else{
+			if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
 
-			$inTo = "NOT IN (".$inTo.")";
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt";
 
-		}
+			}
 
-		/*=============================================
-		Seleccionar varios filtros
-		=============================================*/
+			/*=============================================
+			Limitar datos sin ordenar
+			=============================================*/
 
-		if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
+			if($orderBy == null && $orderMode == null && $startAt != null && $endAt != null){
 
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo ORDER BY $orderBy $orderMode");
+				$sql = "SELECT $select FROM $relArray[0] $innerJoinText WHERE $linkTo BETWEEN '$between1' AND '$between2' $filter LIMIT $startAt, $endAt";
 
-		}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
+			}
 
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-		}else{
+			$stmt = Connection::connect()->prepare($sql);
 
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $table WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo");
+			try{
+
+				$stmt -> execute();
+
+			}catch(PDOException $Exception){
+
+				return null;
 			
+			}
 
-		}
-
-		$stmt -> execute();
-
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-
-	}
-
-	/*=============================================
-	Peticiones GET para rangos entre tablas relacionadas
-	=============================================*/
-
-	static public function getBetweenRelData($rel, $type, $linkTo, $between1, $between2, $filterTo, $inTo, $orderBy, $orderMode, $startAt, $endAt, $select){
-
-		if($inTo != 0){
-
-			$inTo = "IN (".$inTo.")";
+			return $stmt -> fetchAll(PDO::FETCH_CLASS);
 
 		}else{
 
-			$inTo = "NOT IN (".$inTo.")";
-
+			return null;
 		}
 
-
-		$relArray = explode(",", $rel);
-		$typeArray = explode(",", $type);
-
-		/*=============================================
-		Relacionar 2 tablas
-		=============================================*/
-
-		if(count($relArray) == 2 && count($typeArray) == 2){
-
-			$on1 = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on2 = $relArray[1].".id_".$typeArray[1];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo  ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkTo BETWEEN '$between1' AND '$between2'  AND $filterTo $inTo  ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1 = $on2 WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo ");
-
-			}			
-
-		}
-
-		/*=============================================
-		Relacionar 3 tablas
-		=============================================*/
-
-		if(count($relArray) == 3 && count($typeArray) == 3){
-
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo  ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-			$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo ");
-
-			}
-
-		}
-
-		/*=============================================
-		Relacionar 4 tablas
-		=============================================*/
-
-		if(count($relArray) == 4 && count($typeArray) == 4){
-
-			$on1a = $relArray[0].".id_".$typeArray[1]."_".$typeArray[0]; 
-			$on1b = $relArray[1].".id_".$typeArray[1];
-
-			$on2a = $relArray[0].".id_".$typeArray[2]."_".$typeArray[0]; 
-			$on2b = $relArray[2].".id_".$typeArray[2];
-
-			$on3a = $relArray[0].".id_".$typeArray[3]."_".$typeArray[0]; 
-			$on3b = $relArray[3].".id_".$typeArray[3];
-
-			if($orderBy != null && $orderMode != null && $startAt == null && $endAt == null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo  ORDER BY $orderBy $orderMode");
-
-			}else if($orderBy != null && $orderMode != null && $startAt != null && $endAt != null){
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo  ORDER BY $orderBy $orderMode LIMIT $startAt, $endAt");
-		
-			}else{
-
-				$stmt = Connection::connect()->prepare("SELECT $select FROM $relArray[0] INNER JOIN $relArray[1] ON $on1a = $on1b INNER JOIN $relArray[2] ON $on2a = $on2b INNER JOIN $relArray[3] ON $on3a = $on3b WHERE $linkTo BETWEEN '$between1' AND '$between2' AND $filterTo $inTo ");
-
-			}
-
-		}
-
-
-		$stmt -> execute();
-
-		return $stmt -> fetchAll(PDO::FETCH_CLASS);
-		
 	}
+
 
 }
-
 

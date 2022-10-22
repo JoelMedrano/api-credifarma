@@ -1,30 +1,54 @@
 <?php 
 
 require_once "connection.php";
+require_once "get.model.php";
 
 class DeleteModel{
 
 	/*=============================================
-	Peticion DELETE para eliminar datos
+	Peticion Delete para eliminar datos de forma dinámica
 	=============================================*/
 
 	static public function deleteData($table, $id, $nameId){
 
-		$stmt = Connection::connect()->prepare("DELETE FROM $table WHERE $nameId = :$nameId");
+		/*=============================================
+		Validar el ID
+		=============================================*/
 
-		$stmt -> bindParam(":".$nameId, $id, PDO::PARAM_INT);
+		$response = GetModel::getDataFilter($table, $nameId, $nameId, $id, null,null,null,null);
+		
+		if(empty($response)){
+
+			return null;
+
+		}
+
+		/*=============================================
+		Eliminamos registros
+		=============================================*/
+
+		$sql = "DELETE FROM $table WHERE $nameId = :$nameId";
+
+		$link = Connection::connect();
+		$stmt = $link->prepare($sql);
+
+		$stmt->bindParam(":".$nameId, $id, PDO::PARAM_STR);
 
 		if($stmt -> execute()){
 
-			return "The process was successful";;
+			$response = array(
+
+				"comment" => "The process was successful"
+			);
+
+			return $response;
 		
 		}else{
 
-			return Connection::connect()->errorInfo();
+			return $link->errorInfo();
 
 		}
 
 	}
-
 
 }
